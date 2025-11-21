@@ -1,85 +1,48 @@
 import { GoogleGenAI } from "@google/genai";
 import readlineSync from 'readline-sync';
+import { exec } from "child_process";
+import { promisify } from "util";
+import os from 'os'
+
+const platform = os.platform();
+
+const asyncExecute = promisify(exec);
 
 const History = [];
-const ai = new GoogleGenAI({ apiKey: "AIzaSyC6m0hxiOJdmDx5jMxSWjSbFRcY3mT25lA"});
+const ai = new GoogleGenAI({ apiKey: "AIzaSyA5RH2aQzkSxdXNDoG9EPQTaceAxsinIdM"});
 
-function sum({num1,num2}){
-    return num1+num2;
-}
 
-function prime({num}){
+async function executeCommand({command}) {
+    try{
+        const {stdout,stderr}= await asyncExecute(command);
 
-    if(num<2)
-        return false;
-
-    for(let i=2;i<=Math.sqrt(num);i++)
-        if(num%i==0) return false
-
-    return true;
-}
-
-async function getCryptoPrice({coin}){
-
-   const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin}`)
-   const data = await response.json();
-
-   return data;
-}
-
-const sumDeclaration={
-    name:'sum',
-    description:"Get the sum of 2 number",
-    parameters:{
-        type:'OBJECT',
-        properties:{
-            num1:{
-                type:'NUMBER',
-                description: 'It will be first number for addition ex: 10'
-            },
-            num2:{
-                type:'NUMBER',
-                description:'It will be Second number for addition ex: 10'
-            }
-        },
-        required: ['num1','num2']
+        if(stderr){
+            return `Error: ${stderr}`;
+        }
+        return `Success: ${stdout} || Task executed completely`;
+    }
+    catch(error){
+        return `Error: ${error}`;
     }
 }
 
-const primeDeclaration={
-    name:'prime',
-    description:"Get number is prime or not",
+const executeCommandDeclaration={
+    name:'executeCommand',
+    description:"Execute a single terminal/shell command. A command can be to create a folder, file, write on a file, edit the file or delete the file",
     parameters:{
         type:'OBJECT',
         properties:{
-            num1:{
-                type:'NUMBER',
-                description: 'It will be to check prime or not ex: 11'
-            }
-        },
-        required: ['num1']
-    }
-}
-
-const cryptoDeclaration={
-    name:'getCryptoPrice',
-    description:"Get the current price of any crypto Currency like bitcoin",
-    parameters:{
-        type:'OBJECT',
-        properties:{
-            coin:{
+            command:{
                 type:'STRING',
-                description: 'It will be the crypto currency name, like bitcoin'
+                description: 'It will be a single terminal command. Ex: "mkdir calculator'
             },
         },
-        required: ['coin']
+        required: ['command']
     }
 }
 
 const availableTools = {
-    sum:sum,
-    prime:prime,
-    getCryptoPrice:getCryptoPrice,
+    executeCommand
 }
 
 async function runAgent(userProblem) {
@@ -93,14 +56,30 @@ async function runAgent(userProblem) {
             model:"gemini-2.5-flash",
             contents: History,
             config:{
-                systemInstruction: `You are an AI Agent, You have access of 3 available tools like to
-                to find sum of 2 number, get crypto price of any currency and find a number is prime or not
-                
-                Use these tools whenever required to confirm user query.
-                If user ask general question you can answer it directly if you don't need help of these three tools`,
+                systemInstruction: `You are an Website builder expert. You have to create the frontend of the website by analysing the user Input.
+        You have access of tool, which can run or execute any shell or terminal command.
+        
+        Current user operation system is: ${platform}
+        Give command to the user according to its operating system support.
+
+
+        <-- What is your job -->
+        1: Analyse the user query to see what type of website the want to build
+        2: Give them command one by one , step by step
+        3: Use available tool executeCommand
+
+        // Now you can give them command in following below
+        1: First create a folder, Ex: mkdir "calulator"
+        2: Inside the folder, create index.html , Ex: touch "calculator/index.html"
+        3: Then create style.css same as above
+        4: Then create script.js
+        5: Then write a code in html file
+
+        You have to provide the terminal or shell command to user, they will directly execute it
+`,
 
                 tools: [{
-                    functionDeclarations: [sumDeclaration,primeDeclaration,cryptoDeclaration]
+                    functionDeclarations: [executeCommandDeclaration]
                 }],
             }
         })
